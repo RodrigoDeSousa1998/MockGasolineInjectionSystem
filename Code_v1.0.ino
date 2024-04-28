@@ -1,9 +1,19 @@
+//!TODO: Implement timers for angular speed calculations
+//!TODO: Implement potentiometer for load detection (throttle valve opening)
+//!TODO: Implement lookup tables for ignition timing and injection timing
+//!TODO: Implement temperature correction for the timing calculations
+//!TODO: Implement pushbuttons for encoder position zero-ing and gear change
+//!TODO: Implement buzzer for rpm limit warning
+//!TODO: Implement output with rpm and gear
+
 //Macro Definitions
 #define CRANK_ENCODER 0U
 #define CAM_ENCODER   1U
 #define FULL_TURN     30U
 #define ONE_STEP      12U
 #define INIT          0U
+#define OFF           0U
+#define ON            1U
 
 //Macro Pin Definitions
 #define ENCODER_CRK_DT   2U
@@ -18,12 +28,10 @@
 #define GREEN_LED_2      12U
 #define GREEN_LED_3      13U
 
- 
+//Auxiliary Functions Declarations
+int encoderReader(int pinCLK, int pinDT);
+
 //Global Variables
-int aVal;
-boolean bCW;
-int last_CAM_pos;
-int last_CRK_pos;
 
 //Main Functions
 void setup() 
@@ -47,13 +55,52 @@ void setup()
 
 void loop() 
 {  
+
+  int encoder_pos_count = INIT;
+  encoder_pos_count = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+
+  Serial.print("Encoder Pos: ");
+  Serial.println(encoder_pos_count);
+
+  // if (encoder_pos_count == 9)
+  // {
+  //   digitalWrite(GREEN_LED_1, ON);
+  // }
+  // else
+  // {
+  //   digitalWrite(GREEN_LED_1, OFF);
+  // }
+
+  // if (encoder_pos_count == 19)
+  // {
+  //   digitalWrite(GREEN_LED_2, ON);
+  // }
+  // else
+  // {
+  //   digitalWrite(GREEN_LED_2, OFF);
+  // }
+
+  // if (encoder_pos_count == 29)
+  // {
+  //   digitalWrite(GREEN_LED_3, ON);
+  // }
+  // else
+  // {
+  //   digitalWrite(GREEN_LED_3, OFF);
+  // }
+
+}
+
+//Auxiliary Functions Implementations
+int encoderReader(int pinCLK, int pinDT)
+{
   static int last_switch_A = INIT;
   static int last_switch_B = INIT;
   static int encoder_pos_count = INIT;
   static int flip = INIT;
   
-  int switch_A = digitalRead(ENCODER_CRK_CLK);
-  int switch_B = digitalRead(ENCODER_CRK_DT);
+  int switch_A = digitalRead(pinCLK);
+  int switch_B = digitalRead(pinDT);
   
   // int button   = digitalRead(ENCODER_CRK_SW);
   // if (button == 1U)
@@ -61,22 +108,21 @@ void loop()
   //   encoder_pos_count = INIT;
   // }
 
-
   if (switch_A != last_switch_A)
   {    
     if ((switch_A > switch_B) || flip) 
     {
       encoder_pos_count++;
       
-      Serial.print("Encoder Pos: ");
-      Serial.println(encoder_pos_count);
+      // Serial.print("Encoder Pos: ");
+      // Serial.println(encoder_pos_count);
 
       flip = ~flip;
     }  
     else
     {
-      Serial.print("Encoder Pos: ");
-      Serial.println(encoder_pos_count);
+      // Serial.print("Encoder Pos: ");
+      // Serial.println(encoder_pos_count);
       encoder_pos_count--;
     }
   }
@@ -89,34 +135,5 @@ void loop()
   last_switch_A = switch_A;
   last_switch_B = switch_B;
 
-  // aVal = digitalRead(ENCODER_CRK_CLK);
-  // if (aVal != last_CRK_pos)
-  // {                                     // Means the knob is rotating
-  //                                       // if the knob is rotating, we need to determine direction
-  //                                       // We do that by reading pin B.
-  //   if (digitalRead(ENCODER_CRK_DT) != aVal)
-  //   {                                     // Means pin A Changed first - We're Rotating Clockwise
-  //     encoderPosCount++; 
-  //     bCW = true;
-  //   }  
-  //   else 
-  //   {                              // Otherwise B changed first and we're moving CCW bCW = false;
-  //     encoderPosCount--;
-  //   }
-  
-  //   Serial.print ("Rotated: ");
-
-  //   if (bCW)
-  //   {
-  //     Serial.println ("clockwise");
-  //   }
-  //   else
-  //   {
-  //     Serial.println("counterclockwise");
-  //   }
-
-  //   Serial.print("Encoder Position: ");
-  //   Serial.println(encoderPosCount);
-  // }
-  // last_CRK_pos = aVal;
+  return encoder_pos_count;
 }
