@@ -1,10 +1,10 @@
-//!TODO: Implement timers for angular speed calculations                         | (DONE)
-//!TODO: Implement potentiometer for load detection (throttle valve opening)     |
-//!TODO: Implement lookup tables for ignition timing and injection timing        |
-//!TODO: Implement temperature correction for the timing calculations            |
-//!TODO: Implement pushbuttons for encoder position zero-ing and gear change     |
-//!TODO: Implement buzzer for rpm limit warning                                  |
-//!TODO: Implement output with rpm and gear                                      |
+//TODO*: Implement timers for angular speed calculations                         | (DONE)
+//TODO*: Implement potentiometer for load detection (throttle valve opening)     | (DONE)
+//TODO!: Implement lookup tables for ignition timing and injection timing        |
+//TODO!: Implement temperature correction for the timing calculations            |
+//TODO!: Implement pushbuttons for encoder position zero-ing and gear change     |
+//TODO!: Implement buzzer for rpm limit warning                                  |
+//TODO!: Implement output with rpm and gear                                      |
 
 //Macro Definitions
 #define CRANK_ENCODER 0U
@@ -16,6 +16,8 @@
 #define ON            1U
 #define FALSE         0U
 #define TRUE          1U
+#define POT_MIN       0U  //TODO!: PUT CORRECT VALUE 
+#define POT_MAX       1U  //TODO!: PUT CORRECT VALUE
 
 //Macro Pin Definitions
 #define ENCODER_CRK_DT   2U
@@ -23,6 +25,7 @@
 #define ENCODER_CRK_SW   4U
 #define ENCODER_CAM_DT   5U
 #define ENCODER_CAM_CLK  6U
+#define POTENTIOMETER    7U //TODO!: PUT CORRECT ANALOG IN PIN
 #define RED_LED_1        8U
 #define RED_LED_2        9U
 #define RED_LED_3        10U
@@ -58,6 +61,7 @@ void setup()
 void loop() 
 {  
 
+  //TODO!: Put this in standalone functions
   long int init_time = millis();
   int full_turn = FALSE;
   do
@@ -67,7 +71,16 @@ void loop()
   long int final_time = millis();
 
   long int elapsed_time = final_time - init_time;
-  long int angular_speed = 1/elapsed_time; //TODO: Convert to RPM
+  long int angular_speed = 1/elapsed_time; //TODO!: Convert to RPM
+
+  int pot_pin = POTENTIOMETER;
+  int pot_val = INIT;
+
+  pot_val = analogRead(pot_pin);
+                              //TODO!: Call this conversion factor
+  int throtle_opening = 100 * (pot_val/POT_MAX);
+
+
 
   // if (encoder_pos_count == 9)
   // {
