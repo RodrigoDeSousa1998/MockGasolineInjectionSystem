@@ -1,10 +1,10 @@
-//!TODO: Implement timers for angular speed calculations
-//!TODO: Implement potentiometer for load detection (throttle valve opening)
-//!TODO: Implement lookup tables for ignition timing and injection timing
-//!TODO: Implement temperature correction for the timing calculations
-//!TODO: Implement pushbuttons for encoder position zero-ing and gear change
-//!TODO: Implement buzzer for rpm limit warning
-//!TODO: Implement output with rpm and gear
+//!TODO: Implement timers for angular speed calculations                         | (DONE)
+//!TODO: Implement potentiometer for load detection (throttle valve opening)     |
+//!TODO: Implement lookup tables for ignition timing and injection timing        |
+//!TODO: Implement temperature correction for the timing calculations            |
+//!TODO: Implement pushbuttons for encoder position zero-ing and gear change     |
+//!TODO: Implement buzzer for rpm limit warning                                  |
+//!TODO: Implement output with rpm and gear                                      |
 
 //Macro Definitions
 #define CRANK_ENCODER 0U
@@ -14,6 +14,8 @@
 #define INIT          0U
 #define OFF           0U
 #define ON            1U
+#define FALSE         0U
+#define TRUE          1U
 
 //Macro Pin Definitions
 #define ENCODER_CRK_DT   2U
@@ -56,11 +58,16 @@ void setup()
 void loop() 
 {  
 
-  int encoder_pos_count = INIT;
-  encoder_pos_count = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+  long int init_time = millis();
+  int full_turn = FALSE;
+  do
+  {
+    full_turn = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+  } while (full_turn != TRUE);
+  long int final_time = millis();
 
-  Serial.print("Encoder Pos: ");
-  Serial.println(encoder_pos_count);
+  long int elapsed_time = final_time - init_time;
+  long int angular_speed = 1/elapsed_time; //TODO: Convert to RPM
 
   // if (encoder_pos_count == 9)
   // {
@@ -97,6 +104,7 @@ int encoderReader(int pinCLK, int pinDT)
   static int last_switch_A = INIT;
   static int last_switch_B = INIT;
   static int encoder_pos_count = INIT;
+  static int full_turn = FALSE;
   static int flip = INIT;
   
   int switch_A = digitalRead(pinCLK);
@@ -127,6 +135,12 @@ int encoderReader(int pinCLK, int pinDT)
     }
   }
 
+  if (encoder_pos_count == FULL_TURN)
+  {
+    full_turn = TRUE;
+    encoder_pos_count = INIT;
+  }
+
   if ((encoder_pos_count == FULL_TURN) || (encoder_pos_count < 0))
   {
     encoder_pos_count = INIT;
@@ -135,5 +149,5 @@ int encoderReader(int pinCLK, int pinDT)
   last_switch_A = switch_A;
   last_switch_B = switch_B;
 
-  return encoder_pos_count;
+  return full_turn;
 }
