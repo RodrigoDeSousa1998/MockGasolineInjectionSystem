@@ -1,6 +1,7 @@
 //TODO*: Implement timers for angular speed calculations                         | (DONE)
 //TODO*: Implement potentiometer for load detection (throttle valve opening)     | (DONE)
-//TODO!: Implement lookup tables for ignition timing and injection timing        |
+//TODO*: Implement lookup tables for ignition timing and injection timing        | (DONE)
+//TODO!: Implement motor control with pwm having load as an input                |
 //TODO!: Implement temperature correction for the timing calculations            |
 //TODO!: Implement pushbuttons for encoder position zero-ing and gear change     |
 //TODO!: Implement buzzer for rpm limit warning                                  |
@@ -19,6 +20,12 @@
 #define POT_MIN       12.00F   
 #define POT_MAX       1023.00F
 #define SCALE_MAX     100.00F
+#define ENCODER_RESOLUTION 12U
+#define COMPRESSION         0U
+#define ADMISSION           1U
+#define FIRST_CYLINDER 1U
+#define SECOND_CYLINDER 2U
+#define THIRD_CYLINDER 3U
 
 //Macro Pin Definitions
 #define ENCODER_CRK_DT   2U
@@ -35,10 +42,65 @@
 #define GREEN_LED_3      13U
 #define POTENTIOMETER    A0
 
-//Auxiliary Functions Declarations
-int encoderReader(int pinCLK, int pinDT);
+//Type Definitions
+typedef struct
+{
+  int full_turn;
+  int position;
+} shaft;
 
-//Global Variables
+
+//Auxiliary Functions Declarations
+shaft encoderReader(int pinCLK, int pinDT);
+void spark (int* cylinder, int state);
+void inject (int* cylinder, int state);
+
+//Global Variables      
+
+                                                                               /*Throttle Position Switch*/
+const int ignition_map[11][10] = {{ 12 , 12 , 12 , 24 , 24 , 36 , 36 , 60 , 60 , 60 },  /*  0%  */   
+                                  { 12 , 12 , 12 , 24 , 36 , 36 , 36 , 60 , 60 , 60 },  /*  10% */
+                                  { 12 , 12 , 24 , 24 , 36 , 36 , 36 , 48 , 60 , 60 },  /*  20% */
+                                  { 12 , 24 , 24 , 36 , 36 , 36 , 36 , 48 , 48 , 60 },  /*  30% */
+                                  { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 },  /*  40% */
+                                  { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 },  /*  50% */
+                                  { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 },  /*  60% */
+                                  { 12 , 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 },  /*  70% */
+                                  { 12 , 12 , 24 , 24 , 24 , 36 , 36 , 36 , 48 , 48 },  /*  80% */
+                                  { 12 , 12 , 12 , 24 , 24 , 24 , 36 , 36 , 36 , 48 },  /*  90% */
+                                  { 12 , 12 , 12 , 24 , 24 , 24 , 24 , 36 , 36 , 36 }}; /* 100% */  
+                                  /*10   20   30   40   50   60   70   80   90   100*/
+                                                         /*RPM*/
+
+                                                                                  /*Throttle Position Switch*/
+const int injection_map[10][10] = {{ 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 10% */ 
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 20% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 30% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 40% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 50% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 60% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 70% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 80% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }, /* 90% */
+                                   { 96 , 96 , 96 , 96 , 132 , 168 , 168 , 192 , 192 , 192 }};/*100% */
+                                   /*10   20   30   40   50    60    70    80    90    100*/
+                                                             /*RPM*/                                   
+
+                                                                          /*Throttle Position Switch*/
+const int fuel_map[11][10] = {{ 12 , 12 , 12 , 24 , 24 , 24 , 24 , 36 , 36 , 36 }, /*  0%  */  
+                              { 12 , 12 , 12 , 24 , 24 , 24 , 36 , 36 , 36 , 48 }, /*  10% */
+                              { 12 , 12 , 24 , 24 , 24 , 36 , 36 , 36 , 48 , 48 }, /*  20% */
+                              { 12 , 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 }, /*  30% */
+                              { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 }, /*  40% */
+                              { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 }, /*  50% */
+                              { 12 , 24 , 24 , 36 , 36 , 36 , 48 , 48 , 48 , 48 }, /*  60% */
+                              { 12 , 24 , 24 , 36 , 36 , 36 , 36 , 48 , 48 , 60 }, /*  70% */
+                              { 12 , 12 , 24 , 24 , 36 , 36 , 36 , 48 , 60 , 60 }, /*  80% */
+                              { 12 , 12 , 12 , 24 , 36 , 36 , 36 , 60 , 60 , 60 }, /*  90% */
+                              { 12 , 12 , 12 , 24 , 24 , 36 , 36 , 60 , 60 , 60 }};/* 100% */   
+                              /*10   20   30   40   50   60   70   80   90   100*/
+                                                     /*RPM*/
+
 
 //Main Functions
 void setup() 
@@ -61,83 +123,207 @@ void setup()
 
 void loop() 
 {  
-  //TODO!: Put this in standalone functions
-  long int init_time = millis();
-  int full_turn = FALSE;
+  static int cycle_point = COMPRESSION;
+  static int spark_advance = INIT;
+  static int start_of_injection = INIT;
+  static int fuel_mass = INIT;
+  static int cylinder = FIRST_CYLINDER;
+
+  unsigned long int init_time = millis();
+  shaft cranckshaft = {FALSE, INIT};
   do
   {
-    full_turn = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
-    //full_turn = encoderReader(ENCODER_CAM_CLK, ENCODER_CAM_DT);
-  } while (full_turn != TRUE);
-  long int final_time = millis();
+    cranckshaft = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+    if (cycle_point == ADMISSION)
+    {
+      static int spark_start = INIT; 
+      int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+      if (cranckshaft.position == ingnition_point)
+      {
+        spark_start = cranckshaft.position;
+        spark(&cylinder, ON);
+      }
 
-  long int elapsed_time = final_time - init_time;
-  long int angular_speed = 1/elapsed_time; //TODO!: Convert to RPM
+      static int injection_start = INIT;
+      int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+      if (cranckshaft.position == injection_point)
+      {
+        injection_start = cranckshaft.position;
+        inject(&cylinder, ON);
+      }
 
-  Serial.print("elapsed time: ");
-  Serial.println(elapsed_time);
+      if ((cranckshaft.position - spark_start) > 1)
+      {
+        spark(&cylinder, OFF);
+      }
+
+      if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
+      {
+        inject(&cylinder, OFF);
+      }
+    }
+  } while (cranckshaft.full_turn != TRUE);
+  unsigned long int final_time = millis();
+
+  cycle_point = (cycle_point == COMPRESSION) ? ADMISSION : COMPRESSION;
+
+                                    /*Conversion Factor from milliseconds to minutes*/
+  float elapsed_time = (float)(final_time - init_time) * (0.001/60);
+  unsigned int rpm = 1/elapsed_time;
 
   int pot_val = analogRead(POTENTIOMETER);
-                                  /*Conversion Factor Calculation*/
-  float throtle_opening = SCALE_MAX * (float)(pot_val/POT_MAX);
+                          /*Conversion Factor Calculation*/
+  int load = SCALE_MAX * (float)(pot_val/POT_MAX);
 
-  // Serial.print("Pot Pos: ");
-  // Serial.println(pot_val);
-  // Serial.println(throtle_opening);
+  int load_idx = load/10;
+  int rpm_idx = (rpm/10) - 1;
+
+  spark_advance = ignition_map[load_idx][rpm_idx];
+  start_of_injection = injection_map[load_idx][rpm_idx];
+  fuel_mass = fuel_map[load_idx][rpm_idx];
 }
 
 //Auxiliary Functions Implementations
-int encoderReader(int pinCLK, int pinDT)
+shaft encoderReader(int pinCLK, int pinDT)
 {
   static int last_switch_A = INIT;
   static int last_switch_B = INIT;
-  static int encoder_pos_count = INIT;
-  static int full_turn = FALSE;
+  static shaft encoder = {FALSE, INIT};
   static int flip = INIT;
-  
+ 
   int switch_A = digitalRead(pinCLK);
   int switch_B = digitalRead(pinDT);
   
   // int button   = digitalRead(ENCODER_CRK_SW);
   // if (button == 1U)
   // {
-  //   encoder_pos_count = INIT;
+  //   encoder.position = INIT;
   // }
 
   if (switch_A != last_switch_A)
   {    
     if ((switch_A > switch_B) || flip) 
     {
-      encoder_pos_count++;
+      encoder.position++;
       
       // Serial.print("Encoder Pos: ");
-      // Serial.println(encoder_pos_count);
+      // Serial.println(encoder.position);
 
       flip = ~flip;
     }  
     else
     {
       // Serial.print("Encoder Pos: ");
-      // Serial.println(encoder_pos_count);
-      encoder_pos_count--;
+      // Serial.println(encoder.position);
+      encoder.position--;
     }
   }
 
-  if (encoder_pos_count == FULL_TURN)
+  if (encoder.position == FULL_TURN)
   {
-    full_turn = TRUE;
-    encoder_pos_count = INIT;
+    encoder.full_turn = TRUE;
+    encoder.position = INIT;
   }
 
-  if ((encoder_pos_count == FULL_TURN) || (encoder_pos_count < 0))
+  if ((encoder.position == FULL_TURN) || (encoder.position < 0))
   {
-    encoder_pos_count = INIT;
+    encoder.position = INIT;
   }
 
   last_switch_A = switch_A;
   last_switch_B = switch_B;
 
-  digitalWrite(RED_LED_1, flip);
+  return encoder;
+}
 
-  return full_turn;
+//Firing Order: 1-3-2
+void spark (int* cylinder, int state)
+{
+  switch (*cylinder)
+  {
+  case FIRST_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(RED_LED_1, TRUE);
+      *cylinder = THIRD_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(RED_LED_1, FALSE);
+    }
+    break;
+
+  case SECOND_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(RED_LED_2, TRUE);
+      *cylinder = FIRST_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(RED_LED_2, FALSE);
+    }    
+    break;
+  
+  case THIRD_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(RED_LED_3, TRUE);
+      *cylinder = SECOND_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(RED_LED_3, FALSE);
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+//Firing Order: 1-3-2
+void inject (int* cylinder, int state)
+{
+  switch (*cylinder)
+  {
+  case FIRST_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(GREEN_LED_1, TRUE);
+      *cylinder = THIRD_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(GREEN_LED_1, FALSE);
+    }
+    break;
+
+  case SECOND_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(GREEN_LED_2, TRUE);
+      *cylinder = FIRST_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(GREEN_LED_2, FALSE);
+    }    
+    break;
+  
+  case THIRD_CYLINDER:
+    if (state == ON)
+    {
+      digitalWrite(GREEN_LED_3, TRUE);
+      *cylinder = SECOND_CYLINDER;
+    }
+    else /*state == OFF*/
+    {
+      digitalWrite(GREEN_LED_3, FALSE);
+    }
+    break;
+
+  default:
+    break;
+  }
 }
