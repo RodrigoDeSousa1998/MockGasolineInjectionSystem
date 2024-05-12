@@ -16,8 +16,9 @@
 #define ON            1U
 #define FALSE         0U
 #define TRUE          1U
-#define POT_MIN       0U  //TODO!: PUT CORRECT VALUE 
-#define POT_MAX       1U  //TODO!: PUT CORRECT VALUE
+#define POT_MIN       12.00F   
+#define POT_MAX       1023.00F
+#define SCALE_MAX     100.00F
 
 //Macro Pin Definitions
 #define ENCODER_CRK_DT   2U
@@ -25,13 +26,14 @@
 #define ENCODER_CRK_SW   4U
 #define ENCODER_CAM_DT   5U
 #define ENCODER_CAM_CLK  6U
-#define POTENTIOMETER    7U //TODO!: PUT CORRECT ANALOG IN PIN
+#define ENCODER_CAM_SW   7U
 #define RED_LED_1        8U
 #define RED_LED_2        9U
 #define RED_LED_3        10U
 #define GREEN_LED_1      11U
 #define GREEN_LED_2      12U
 #define GREEN_LED_3      13U
+#define POTENTIOMETER    A0
 
 //Auxiliary Functions Declarations
 int encoderReader(int pinCLK, int pinDT);
@@ -54,61 +56,34 @@ void setup()
   pinMode (ENCODER_CAM_DT  , INPUT);
   pinMode (ENCODER_CAM_CLK , INPUT);
 
-  
   Serial.begin (9600);
 }
 
 void loop() 
 {  
-
   //TODO!: Put this in standalone functions
   long int init_time = millis();
   int full_turn = FALSE;
   do
   {
     full_turn = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+    //full_turn = encoderReader(ENCODER_CAM_CLK, ENCODER_CAM_DT);
   } while (full_turn != TRUE);
   long int final_time = millis();
 
   long int elapsed_time = final_time - init_time;
   long int angular_speed = 1/elapsed_time; //TODO!: Convert to RPM
 
-  int pot_pin = POTENTIOMETER;
-  int pot_val = INIT;
+  Serial.print("elapsed time: ");
+  Serial.println(elapsed_time);
 
-  pot_val = analogRead(pot_pin);
-                              //TODO!: Call this conversion factor
-  int throtle_opening = 100 * (pot_val/POT_MAX);
+  int pot_val = analogRead(POTENTIOMETER);
+                                  /*Conversion Factor Calculation*/
+  float throtle_opening = SCALE_MAX * (float)(pot_val/POT_MAX);
 
-
-
-  // if (encoder_pos_count == 9)
-  // {
-  //   digitalWrite(GREEN_LED_1, ON);
-  // }
-  // else
-  // {
-  //   digitalWrite(GREEN_LED_1, OFF);
-  // }
-
-  // if (encoder_pos_count == 19)
-  // {
-  //   digitalWrite(GREEN_LED_2, ON);
-  // }
-  // else
-  // {
-  //   digitalWrite(GREEN_LED_2, OFF);
-  // }
-
-  // if (encoder_pos_count == 29)
-  // {
-  //   digitalWrite(GREEN_LED_3, ON);
-  // }
-  // else
-  // {
-  //   digitalWrite(GREEN_LED_3, OFF);
-  // }
-
+  // Serial.print("Pot Pos: ");
+  // Serial.println(pot_val);
+  // Serial.println(throtle_opening);
 }
 
 //Auxiliary Functions Implementations
@@ -161,6 +136,8 @@ int encoderReader(int pinCLK, int pinDT)
 
   last_switch_A = switch_A;
   last_switch_B = switch_B;
+
+  digitalWrite(RED_LED_1, flip);
 
   return full_turn;
 }
