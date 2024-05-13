@@ -137,7 +137,6 @@ void loop()
   static int spark_advance = INIT;
   static int start_of_injection = INIT;
   static int fuel_mass = INIT;
-  static int cylinder = FIRST_CYLINDER;
 
   unsigned long int init_time = millis();
   shaft cranckshaft = {FALSE, INIT};
@@ -147,17 +146,19 @@ void loop()
 
     for (int i = 0; i < NUMBER_OF_CYLINDERS; i++)
     {
-      switch (i)
+      if (i == FIRST_CYLINDER)
       {
-      case FIRST_CYLINDER:
         if (first_cyl.cycle_point == ADMISSION)
         {
+          //Serial.println ("FIRST");
+
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
           if (cranckshaft.position == ingnition_point)
           {
             spark_start = cranckshaft.position;
             spark(FIRST_CYLINDER, ON);
+            Serial.println ("SPARK ON");
           }
 
           static int injection_start = INIT;
@@ -166,22 +167,28 @@ void loop()
           {
             injection_start = cranckshaft.position;
             inject(FIRST_CYLINDER, ON);
+            Serial.println ("INJECTION ON");
           }
 
           if ((cranckshaft.position - spark_start) > 1)
           {
             spark(FIRST_CYLINDER, OFF);
+            Serial.println ("SPARK OFF");
           }
 
           if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
           {
             inject(FIRST_CYLINDER, OFF);
+            Serial.println ("INJECTION OFF");
           }
         }
-        break;
-      case SECOND_CYLINDER:
+      }
+      else if (i == SECOND_CYLINDER)
+      {
         if (second_cyl.cycle_point == ADMISSION)
         {
+          //Serial.println ("SECOND");
+
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
           if (cranckshaft.position == ingnition_point)
@@ -208,10 +215,13 @@ void loop()
             inject(SECOND_CYLINDER, OFF);
           }
         }
-        break;
-      case THIRD_CYLINDER:
+      }
+      else if (i == THIRD_CYLINDER)
+      {
         if (third_cyl.cycle_point == ADMISSION)
         {
+          //Serial.println ("THIRD");
+          
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
           if (cranckshaft.position == ingnition_point)
@@ -238,13 +248,12 @@ void loop()
             inject(THIRD_CYLINDER, OFF);
           }
         }
-        break;
-      
-      default:
-        break;
+      }
+      else
+      {
+
       }
     }
-
   } while (cranckshaft.full_turn != TRUE);
   unsigned long int final_time = millis();
 
@@ -259,9 +268,13 @@ void loop()
   int load_idx = load/10;
   int rpm_idx = (rpm/10) - 1;
 
-  spark_advance      = ignition_map [load_idx][rpm_idx];
-  start_of_injection = injection_map[load_idx][rpm_idx];
-  fuel_mass          = fuel_map     [load_idx][rpm_idx];
+  //spark_advance      = ignition_map [load_idx][rpm_idx];
+  //start_of_injection = injection_map[load_idx][rpm_idx];
+  //fuel_mass          = fuel_map     [load_idx][rpm_idx];
+
+  spark_advance      = 60;
+  start_of_injection = 192;
+  fuel_mass          = 48;
 }
 
 //Auxiliary Functions Implementations
@@ -291,6 +304,15 @@ shaft encoderReader(int pinCLK, int pinDT)
       second_cyl.update_data(SECOND_CYLINDER);
       third_cyl.update_data(THIRD_CYLINDER);
       
+      // Serial.print("Pos First: ");
+      // Serial.println(first_cyl.position);
+      // Serial.println(first_cyl.cycle_point);
+      // Serial.print("Pos Second: ");
+      // Serial.println(second_cyl.position);
+      // Serial.println(second_cyl.cycle_point);
+      // Serial.print("Pos Third: ");
+      // Serial.println(third_cyl.position);
+      // Serial.println(second_cyl.cycle_point);
       Serial.print("Encoder Pos: ");
       Serial.println(encoder.position);
 
@@ -301,11 +323,6 @@ shaft encoderReader(int pinCLK, int pinDT)
   if (encoder.position == FULL_TURN)
   {
     encoder.full_turn = TRUE;
-    encoder.position = INIT;
-  }
-
-  if ((encoder.position == FULL_TURN) || (encoder.position < 0))
-  {
     encoder.position = INIT;
   }
 
@@ -320,23 +337,24 @@ void update (int cylinder)
   switch (cylinder)
   {
   case FIRST_CYLINDER:
-    first_cyl.position++;
-    if (first_cyl.position == (720 / ENCODER_RESOLUTION))
+    first_cyl.position += ENCODER_RESOLUTION;
+    if (first_cyl.position == 720)
     {
       first_cyl.position = 0;
       first_cyl.cycle_point = EXPANSION;
     }
-    else if (first_cyl.position == (180 / ENCODER_RESOLUTION))
+    else if (first_cyl.position == 180)
     {
-      first_cyl.cycle_point == EXHAUST;
+      first_cyl.cycle_point = EXHAUST;
     }
-    else if (first_cyl.position == (360 / ENCODER_RESOLUTION))
+    else if (first_cyl.position == 360)
     {
-      first_cyl.cycle_point == ADMISSION;
+      //Serial.println("FIRST CYL SET TO ADMISSION");
+      first_cyl.cycle_point = ADMISSION;
     }
-    else if (first_cyl.position == (540 / ENCODER_RESOLUTION))
+    else if (first_cyl.position == 540)
     {
-      first_cyl.cycle_point == COMPRESSION;
+      first_cyl.cycle_point = COMPRESSION;
     }
     else
     {
@@ -344,23 +362,24 @@ void update (int cylinder)
     }
     break;
   case SECOND_CYLINDER:
-    second_cyl.position++;
-    if (second_cyl.position == (720 / ENCODER_RESOLUTION))
+    second_cyl.position += ENCODER_RESOLUTION;
+    if (second_cyl.position == 720)
     {
       second_cyl.position = 0;
       second_cyl.cycle_point = EXPANSION;
     }
-    else if (second_cyl.position == (180 / ENCODER_RESOLUTION))
+    else if (second_cyl.position == 180)
     {
-      second_cyl.cycle_point == EXHAUST;
+      second_cyl.cycle_point = EXHAUST;
     }
-    else if (second_cyl.position == (360 / ENCODER_RESOLUTION))
+    else if (second_cyl.position == 360)
     {
-      second_cyl.cycle_point == ADMISSION;
+      //Serial.println("SECOND CYL SET TO ADMISSION");
+      second_cyl.cycle_point = ADMISSION;
     }
-    else if (second_cyl.position == (540 / ENCODER_RESOLUTION))
+    else if (second_cyl.position == 540)
     {
-      second_cyl.cycle_point == COMPRESSION;
+      second_cyl.cycle_point = COMPRESSION;
     }
     else
     {
@@ -368,23 +387,24 @@ void update (int cylinder)
     }
     break;
   case THIRD_CYLINDER:
-    third_cyl.position++;
-    if (third_cyl.position == (720 / ENCODER_RESOLUTION))
+    third_cyl.position += ENCODER_RESOLUTION;
+    if (third_cyl.position == 720)
     {
       third_cyl.position = 0;
       third_cyl.cycle_point = EXPANSION;
     }
-    else if (third_cyl.position == (180 / ENCODER_RESOLUTION))
+    else if (third_cyl.position == 180)
     {
-      third_cyl.cycle_point == EXHAUST;
+      third_cyl.cycle_point = EXHAUST;
     }
-    else if (third_cyl.position == (360 / ENCODER_RESOLUTION))
+    else if (third_cyl.position == 360)
     {
-      third_cyl.cycle_point == ADMISSION;
+      //Serial.println("THIRD CYL SET TO ADMISSION");
+      third_cyl.cycle_point = ADMISSION;
     }
-    else if (third_cyl.position == (540 / ENCODER_RESOLUTION))
+    else if (third_cyl.position == 540)
     {
-      third_cyl.cycle_point == COMPRESSION;
+      third_cyl.cycle_point = COMPRESSION;
     }
     else
     {
