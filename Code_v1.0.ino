@@ -137,7 +137,6 @@ void loop()
   static int spark_advance = INIT;
   static int start_of_injection = INIT;
   static int fuel_mass = INIT;
-  static int first_turn = TRUE;
 
   unsigned long int init_time = millis();
   shaft cranckshaft = {FALSE, INIT};
@@ -149,9 +148,9 @@ void loop()
     {
       if (i == FIRST_CYLINDER)
       {
-        if (first_cyl.cycle_point == ADMISSION)
+        if (first_cyl.cycle_point == ADMISSION || first_cyl.cycle_point == COMPRESSION)
         {
-          //Serial.println ("FIRST");
+          Serial.println ("FIRST");
 
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
@@ -159,7 +158,6 @@ void loop()
           {
             spark_start = cranckshaft.position;
             spark(FIRST_CYLINDER, ON);
-            Serial.println ("SPARK ON");
           }
 
           static int injection_start = INIT;
@@ -168,28 +166,25 @@ void loop()
           {
             injection_start = cranckshaft.position;
             inject(FIRST_CYLINDER, ON);
-            //Serial.println ("INJECTION ON");
           }
 
           if ((spark_start != INIT) && ((cranckshaft.position - spark_start) > 1))
           {
             spark(FIRST_CYLINDER, OFF);
-            //Serial.println ("SPARK OFF");
           }
 
           if ((injection_start != INIT) && 
               ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
           {
             inject(FIRST_CYLINDER, OFF);
-            //Serial.println ("INJECTION OFF");
           }
         }
       }
       else if (i == SECOND_CYLINDER)
       {
-        if (second_cyl.cycle_point == ADMISSION)
+        if (second_cyl.cycle_point == ADMISSION || second_cyl.cycle_point == COMPRESSION)
         {
-          //Serial.println ("SECOND");
+          Serial.println ("SECOND");
 
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
@@ -221,9 +216,9 @@ void loop()
       }
       else if (i == THIRD_CYLINDER)
       {
-        if (third_cyl.cycle_point == ADMISSION)
+        if (third_cyl.cycle_point == ADMISSION  || third_cyl.cycle_point == COMPRESSION)
         {
-          //Serial.println ("THIRD");
+          Serial.println ("THIRD");
           
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
@@ -291,12 +286,6 @@ shaft encoderReader(int pinCLK, int pinDT)
  
   int switch_A = digitalRead(pinCLK);
   int switch_B = digitalRead(pinDT);
-  
-  // int button   = digitalRead(ENCODER_CRK_SW);
-  // if (button == 1U)
-  // {
-  //   encoder.position = INIT;
-  // }
 
   if (switch_A != last_switch_A)
   {    
@@ -308,15 +297,6 @@ shaft encoderReader(int pinCLK, int pinDT)
       second_cyl.update_data(SECOND_CYLINDER);
       third_cyl.update_data(THIRD_CYLINDER);
       
-      // Serial.print("Pos First: ");
-      // Serial.println(first_cyl.position);
-      // Serial.println(first_cyl.cycle_point);
-      // Serial.print("Pos Second: ");
-      // Serial.println(second_cyl.position);
-      // Serial.println(second_cyl.cycle_point);
-      // Serial.print("Pos Third: ");
-      // Serial.println(third_cyl.position);
-      // Serial.println(second_cyl.cycle_point);
       // Serial.print("Encoder Pos: ");
       // Serial.println(encoder.position);
 
@@ -353,7 +333,6 @@ void update (int cylinder)
     }
     else if (first_cyl.position == 360)
     {
-      //Serial.println("FIRST CYL SET TO ADMISSION");
       first_cyl.cycle_point = ADMISSION;
     }
     else if (first_cyl.position == 540)
@@ -378,7 +357,6 @@ void update (int cylinder)
     }
     else if (second_cyl.position == 360)
     {
-      //Serial.println("SECOND CYL SET TO ADMISSION");
       second_cyl.cycle_point = ADMISSION;
     }
     else if (second_cyl.position == 540)
@@ -403,7 +381,6 @@ void update (int cylinder)
     }
     else if (third_cyl.position == 360)
     {
-      //Serial.println("THIRD CYL SET TO ADMISSION");
       third_cyl.cycle_point = ADMISSION;
     }
     else if (third_cyl.position == 540)
