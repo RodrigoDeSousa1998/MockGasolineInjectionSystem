@@ -150,31 +150,33 @@ void loop()
       {
         if (first_cyl.cycle_point == ADMISSION || first_cyl.cycle_point == COMPRESSION)
         {
-          Serial.println ("FIRST");
+          //Serial.println ("FIRST");
 
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == ingnition_point)
+          if (((first_cyl.position - 360) / ENCODER_RESOLUTION) == ingnition_point)
           {
+            Serial.println("FIRST IGN ON");
             spark_start = cranckshaft.position;
             spark(FIRST_CYLINDER, ON);
           }
 
           static int injection_start = INIT;
           int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == injection_point)
+          if (((first_cyl.position - 360) / ENCODER_RESOLUTION)  == injection_point)
           {
+            Serial.println("FIRST INJ ON");
             injection_start = cranckshaft.position;
             inject(FIRST_CYLINDER, ON);
           }
 
-          if ((spark_start != INIT) && ((cranckshaft.position - spark_start) > 1))
+          if ((spark_start != INIT) && ((((first_cyl.position - 360) / ENCODER_RESOLUTION) - spark_start) > 1))
           {
             spark(FIRST_CYLINDER, OFF);
           }
 
           if ((injection_start != INIT) && 
-              ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+              ((((first_cyl.position - 360) / ENCODER_RESOLUTION) - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
           {
             inject(FIRST_CYLINDER, OFF);
           }
@@ -184,31 +186,33 @@ void loop()
       {
         if (second_cyl.cycle_point == ADMISSION || second_cyl.cycle_point == COMPRESSION)
         {
-          Serial.println ("SECOND");
+          //Serial.println ("SECOND");
 
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == ingnition_point)
+          if (((second_cyl.position - 360) / ENCODER_RESOLUTION) == ingnition_point)
           {
+            Serial.println("SECOND IGN ON");
             spark_start = cranckshaft.position;
             spark(SECOND_CYLINDER, ON);
           }
 
           static int injection_start = INIT;
           int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == injection_point)
+          if (((second_cyl.position - 360) / ENCODER_RESOLUTION) == injection_point)
           {
+            Serial.println("SECOND INJ ON");
             injection_start = cranckshaft.position;
             inject(SECOND_CYLINDER, ON);
           }
 
-          if ((spark_start != INIT) && ((cranckshaft.position - spark_start) > 1))
+          if ((spark_start != INIT) && ((((second_cyl.position - 360) / ENCODER_RESOLUTION) - spark_start) > 1))
           {
             spark(SECOND_CYLINDER, OFF);
           }
 
           if ((injection_start != INIT) && 
-              ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+              ((((second_cyl.position - 360) / ENCODER_RESOLUTION) - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
           {
             inject(SECOND_CYLINDER, OFF);
           }
@@ -218,31 +222,33 @@ void loop()
       {
         if (third_cyl.cycle_point == ADMISSION  || third_cyl.cycle_point == COMPRESSION)
         {
-          Serial.println ("THIRD");
+          //Serial.println ("THIRD");
           
           static int spark_start = INIT; 
           int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == ingnition_point)
+          if (((third_cyl.position - 360) / ENCODER_RESOLUTION) == ingnition_point)
           {
+            Serial.println("THIRD IGN ON");
             spark_start = cranckshaft.position;
             spark(THIRD_CYLINDER, ON);
           }
 
           static int injection_start = INIT;
           int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cranckshaft.position == injection_point)
+          if (((third_cyl.position - 360) / ENCODER_RESOLUTION) == injection_point)
           {
+            Serial.println("THIRD INJ ON");
             injection_start = cranckshaft.position;
             inject(THIRD_CYLINDER, ON);
           }
 
-          if ((spark_start != INIT) && ((cranckshaft.position - spark_start) > 1))
+          if ((spark_start != INIT) && ((((third_cyl.position - 360) / ENCODER_RESOLUTION) - spark_start) > 1))
           {
             spark(THIRD_CYLINDER, OFF);
           }
 
           if ((injection_start != INIT) && 
-              ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+              ((((third_cyl.position - 360) / ENCODER_RESOLUTION) - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
           {
             inject(THIRD_CYLINDER, OFF);
           }
@@ -297,6 +303,9 @@ shaft encoderReader(int pinCLK, int pinDT)
       second_cyl.update_data(SECOND_CYLINDER);
       third_cyl.update_data(THIRD_CYLINDER);
       
+      Serial.print("First Pos: ");
+      Serial.println(first_cyl.position);
+
       // Serial.print("Encoder Pos: ");
       // Serial.println(encoder.position);
 
