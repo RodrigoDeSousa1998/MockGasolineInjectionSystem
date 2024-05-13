@@ -1,15 +1,19 @@
 //TODO*: Implement timers for angular speed calculations                         | (DONE)
 //TODO*: Implement potentiometer for load detection (throttle valve opening)     | (DONE)
 //TODO*: Implement lookup tables for ignition timing and injection timing        | (DONE)
+//TODO : Implement temperature correction for the timing calculations            | (DONE~)
 //TODO!: Implement motor control with pwm having load as an input                |
-//TODO!: Implement temperature correction for the timing calculations            |
 //TODO!: Implement pushbuttons for encoder position zero-ing and gear change     |
 //TODO!: Implement buzzer for rpm limit warning                                  |
 //TODO!: Implement output with rpm and gear                                      |
 
+//Libraries
+#include "DHT.h"
+
 //Macro Definitions
 #define FULL_TURN           30U
 #define INIT                0U
+#define INIT_F              0.00F
 #define OFF                 0U
 #define ON                  1U
 #define FALSE               0U
@@ -26,8 +30,11 @@
 #define SECOND_CYLINDER     1U
 #define THIRD_CYLINDER      2U
 #define NUMBER_OF_CYLINDERS 3U
+#define ONE_SECOND          1000U
+#define AMBIENT_TEMPERATURE 25U
 
 //Macro Pin Definitions
+#define TEMP_SENSOR      1U
 #define ENCODER_CRK_CLK  2U
 #define ENCODER_CRK_DT   3U
 #define ENCODER_CRK_SW   4U
@@ -113,9 +120,16 @@ static cylinder first_cylinder  = {FIRST_CYLINDER , EXPANSION  , 0  , update}; /
 static cylinder second_cylinder = {SECOND_CYLINDER, EXHAUST    , 240, update}; /*Firing Order: 1-3-2*/
 static cylinder third_cylinder  = {THIRD_CYLINDER , ADMISSION  , 480, update};
 
+DHT dht (TEMP_SENSOR, DHT11); /*Pin and sensor id for temperature reading*/
+
 //Main Functions
 void setup() 
 {
+  // delay(ONE_SECOND); /*To ensure temperature sensor has passed the unstable status*/
+  // dht.begin();
+
+  Serial.begin (9600);
+
   pinMode (RED_LED_1   , OUTPUT);
   pinMode (RED_LED_2   , OUTPUT);
   pinMode (RED_LED_3   , OUTPUT);
@@ -128,8 +142,8 @@ void setup()
   pinMode (ENCODER_CRK_SW  , INPUT);  
   pinMode (ENCODER_CAM_DT  , INPUT);
   pinMode (ENCODER_CAM_CLK , INPUT);
-
-  Serial.begin (9600);
+  
+  // delay(ONE_SECOND); /*To ensure max frequency reading of temperature sensor is abided*/
 }
 
 void loop() 
@@ -137,6 +151,21 @@ void loop()
   static int spark_advance      = INIT;
   static int start_of_injection = INIT;
   static int fuel_mass          = INIT;
+
+  // static float temperature = INIT_F; 
+  // static unsigned long int temp_read_init  = INIT;
+  // static unsigned long int temp_read_final = INIT;
+  // static int first_run = TRUE;
+
+  // temp_read_final = millis();
+  // if (((temp_read_final - temp_read_init) >= ONE_SECOND) || (first_run == TRUE))
+  // {
+  //   temperature = dht.readTemperature();
+  //   temp_read_init = millis();
+  //   first_run = FALSE;
+  // }
+
+  // Serial.println(temperature);
 
   unsigned long int init_time = millis();
   shaft crankshaft = {FALSE, INIT};
@@ -270,7 +299,23 @@ void loop()
   int load_idx = load/10;
   int rpm_idx = (rpm/10) - 1;
 
-  spark_advance      = ignition_map [load_idx][rpm_idx];
+  // int temp_correction = temperature - AMBIENT_TEMPERATURE;
+  // //To avoid not multiples of encoder resolution
+  // if (temp_correction > 1)
+  // {
+  //   temp_correction = 1;
+  // } 
+  // else if (temp_correction < -1)
+  // {
+  //   temp_correction = -1;
+  // }
+  // else
+  // {
+  //   /*DO NOTHING*/
+  // }
+
+  //spark_advance      = ignition_map [load_idx][rpm_idx] - (ENCODER_RESOLUTION * temp_correction);
+  spark_advance      = ignition_map [load_idx][rpm_idx]; 
   start_of_injection = injection_map[load_idx][rpm_idx];
   fuel_mass          = fuel_map     [load_idx][rpm_idx];
 }
