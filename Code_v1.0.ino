@@ -8,28 +8,28 @@
 //TODO!: Implement output with rpm and gear                                      |
 
 //Macro Definitions
-#define CRANK_ENCODER 0U
-#define CAM_ENCODER   1U
-#define FULL_TURN     30U
-#define ONE_STEP      12U
-#define INIT          0U
-#define OFF           0U
-#define ON            1U
-#define FALSE         0U
-#define TRUE          1U
-#define POT_MIN       12.00F   
-#define POT_MAX       1023.00F
-#define SCALE_MAX     100.00F
-#define ENCODER_RESOLUTION 12U
-#define COMPRESSION         0U
-#define ADMISSION           1U
-#define FIRST_CYLINDER 1U
-#define SECOND_CYLINDER 2U
-#define THIRD_CYLINDER 3U
+#define FULL_TURN           30U
+#define INIT                0U
+#define OFF                 0U
+#define ON                  1U
+#define FALSE               0U
+#define TRUE                1U
+#define POT_MIN             12.00F   
+#define POT_MAX             1023.00F
+#define SCALE_MAX           100.00F
+#define ENCODER_RESOLUTION  12U
+#define ADMISSION           0U
+#define COMPRESSION         1U
+#define EXPANSION           2U
+#define EXHAUST             3U
+#define FIRST_CYLINDER      0U
+#define SECOND_CYLINDER     1U
+#define THIRD_CYLINDER      2U
+#define NUMBER_OF_CYLINDERS 3U
 
 //Macro Pin Definitions
-#define ENCODER_CRK_DT   2U
-#define ENCODER_CRK_CLK  3U
+#define ENCODER_CRK_CLK  2U
+#define ENCODER_CRK_DT   3U
 #define ENCODER_CRK_SW   4U
 #define ENCODER_CAM_DT   5U
 #define ENCODER_CAM_CLK  6U
@@ -49,11 +49,19 @@ typedef struct
   int position;
 } shaft;
 
+typedef struct
+{
+  int number;
+  int cycle_point;
+  int position;
+  void (*update_data)(int);
+} cylinder;
 
 //Auxiliary Functions Declarations
 shaft encoderReader(int pinCLK, int pinDT);
-void spark (int* cylinder, int state);
-void inject (int* cylinder, int state);
+void update (int cylinder);
+void spark (int cylinder, int state);
+void inject (int cylinder, int state);
 
 //Global Variables      
 
@@ -101,6 +109,9 @@ const int fuel_map[11][10] = {{ 12 , 12 , 12 , 24 , 24 , 24 , 24 , 36 , 36 , 36 
                               /*10   20   30   40   50   60   70   80   90   100*/
                                                      /*RPM*/
 
+static cylinder first_cyl  = {FIRST_CYLINDER , EXPANSION  , 0  , update}; /* Cycle Positions at beginning*/
+static cylinder second_cyl = {SECOND_CYLINDER, EXHAUST    , 240, update};
+static cylinder third_cyl  = {THIRD_CYLINDER , ADMISSION  , 480, update};
 
 //Main Functions
 void setup() 
@@ -123,7 +134,6 @@ void setup()
 
 void loop() 
 {  
-  static int cycle_point = COMPRESSION;
   static int spark_advance = INIT;
   static int start_of_injection = INIT;
   static int fuel_mass = INIT;
@@ -134,38 +144,109 @@ void loop()
   do
   {
     cranckshaft = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
-    if (cycle_point == ADMISSION)
+
+    for (int i = 0; i < NUMBER_OF_CYLINDERS; i++)
     {
-      static int spark_start = INIT; 
-      int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-      if (cranckshaft.position == ingnition_point)
+      switch (i)
       {
-        spark_start = cranckshaft.position;
-        spark(&cylinder, ON);
-      }
+      case FIRST_CYLINDER:
+        if (first_cyl.cycle_point == ADMISSION)
+        {
+          static int spark_start = INIT; 
+          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == ingnition_point)
+          {
+            spark_start = cranckshaft.position;
+            spark(FIRST_CYLINDER, ON);
+          }
 
-      static int injection_start = INIT;
-      int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-      if (cranckshaft.position == injection_point)
-      {
-        injection_start = cranckshaft.position;
-        inject(&cylinder, ON);
-      }
+          static int injection_start = INIT;
+          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == injection_point)
+          {
+            injection_start = cranckshaft.position;
+            inject(FIRST_CYLINDER, ON);
+          }
 
-      if ((cranckshaft.position - spark_start) > 1)
-      {
-        spark(&cylinder, OFF);
-      }
+          if ((cranckshaft.position - spark_start) > 1)
+          {
+            spark(FIRST_CYLINDER, OFF);
+          }
 
-      if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
-      {
-        inject(&cylinder, OFF);
+          if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
+          {
+            inject(FIRST_CYLINDER, OFF);
+          }
+        }
+        break;
+      case SECOND_CYLINDER:
+        if (second_cyl.cycle_point == ADMISSION)
+        {
+          static int spark_start = INIT; 
+          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == ingnition_point)
+          {
+            spark_start = cranckshaft.position;
+            spark(SECOND_CYLINDER, ON);
+          }
+
+          static int injection_start = INIT;
+          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == injection_point)
+          {
+            injection_start = cranckshaft.position;
+            inject(SECOND_CYLINDER, ON);
+          }
+
+          if ((cranckshaft.position - spark_start) > 1)
+          {
+            spark(SECOND_CYLINDER, OFF);
+          }
+
+          if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
+          {
+            inject(SECOND_CYLINDER, OFF);
+          }
+        }
+        break;
+      case THIRD_CYLINDER:
+        if (third_cyl.cycle_point == ADMISSION)
+        {
+          static int spark_start = INIT; 
+          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == ingnition_point)
+          {
+            spark_start = cranckshaft.position;
+            spark(THIRD_CYLINDER, ON);
+          }
+
+          static int injection_start = INIT;
+          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+          if (cranckshaft.position == injection_point)
+          {
+            injection_start = cranckshaft.position;
+            inject(THIRD_CYLINDER, ON);
+          }
+
+          if ((cranckshaft.position - spark_start) > 1)
+          {
+            spark(THIRD_CYLINDER, OFF);
+          }
+
+          if ((cranckshaft.position - injection_start) > (fuel_mass / ENCODER_RESOLUTION))
+          {
+            inject(THIRD_CYLINDER, OFF);
+          }
+        }
+        break;
+      
+      default:
+        break;
       }
     }
+
   } while (cranckshaft.full_turn != TRUE);
   unsigned long int final_time = millis();
-
-  cycle_point = (cycle_point == COMPRESSION) ? ADMISSION : COMPRESSION;
 
                                     /*Conversion Factor from milliseconds to minutes*/
   float elapsed_time = (float)(final_time - init_time) * (0.001/60);
@@ -178,9 +259,9 @@ void loop()
   int load_idx = load/10;
   int rpm_idx = (rpm/10) - 1;
 
-  spark_advance = ignition_map[load_idx][rpm_idx];
+  spark_advance      = ignition_map [load_idx][rpm_idx];
   start_of_injection = injection_map[load_idx][rpm_idx];
-  fuel_mass = fuel_map[load_idx][rpm_idx];
+  fuel_mass          = fuel_map     [load_idx][rpm_idx];
 }
 
 //Auxiliary Functions Implementations
@@ -206,17 +287,15 @@ shaft encoderReader(int pinCLK, int pinDT)
     {
       encoder.position++;
       
-      // Serial.print("Encoder Pos: ");
-      // Serial.println(encoder.position);
+      first_cyl.update_data(FIRST_CYLINDER);
+      second_cyl.update_data(SECOND_CYLINDER);
+      third_cyl.update_data(THIRD_CYLINDER);
+      
+      Serial.print("Encoder Pos: ");
+      Serial.println(encoder.position);
 
       flip = ~flip;
     }  
-    else
-    {
-      // Serial.print("Encoder Pos: ");
-      // Serial.println(encoder.position);
-      encoder.position--;
-    }
   }
 
   if (encoder.position == FULL_TURN)
@@ -236,16 +315,97 @@ shaft encoderReader(int pinCLK, int pinDT)
   return encoder;
 }
 
-//Firing Order: 1-3-2
-void spark (int* cylinder, int state)
+void update (int cylinder)
 {
-  switch (*cylinder)
+  switch (cylinder)
+  {
+  case FIRST_CYLINDER:
+    first_cyl.position++;
+    if (first_cyl.position == (720 / ENCODER_RESOLUTION))
+    {
+      first_cyl.position = 0;
+      first_cyl.cycle_point = EXPANSION;
+    }
+    else if (first_cyl.position == (180 / ENCODER_RESOLUTION))
+    {
+      first_cyl.cycle_point == EXHAUST;
+    }
+    else if (first_cyl.position == (360 / ENCODER_RESOLUTION))
+    {
+      first_cyl.cycle_point == ADMISSION;
+    }
+    else if (first_cyl.position == (540 / ENCODER_RESOLUTION))
+    {
+      first_cyl.cycle_point == COMPRESSION;
+    }
+    else
+    {
+      /*DO NOTHING*/
+    }
+    break;
+  case SECOND_CYLINDER:
+    second_cyl.position++;
+    if (second_cyl.position == (720 / ENCODER_RESOLUTION))
+    {
+      second_cyl.position = 0;
+      second_cyl.cycle_point = EXPANSION;
+    }
+    else if (second_cyl.position == (180 / ENCODER_RESOLUTION))
+    {
+      second_cyl.cycle_point == EXHAUST;
+    }
+    else if (second_cyl.position == (360 / ENCODER_RESOLUTION))
+    {
+      second_cyl.cycle_point == ADMISSION;
+    }
+    else if (second_cyl.position == (540 / ENCODER_RESOLUTION))
+    {
+      second_cyl.cycle_point == COMPRESSION;
+    }
+    else
+    {
+      /*DO NOTHING*/
+    }
+    break;
+  case THIRD_CYLINDER:
+    third_cyl.position++;
+    if (third_cyl.position == (720 / ENCODER_RESOLUTION))
+    {
+      third_cyl.position = 0;
+      third_cyl.cycle_point = EXPANSION;
+    }
+    else if (third_cyl.position == (180 / ENCODER_RESOLUTION))
+    {
+      third_cyl.cycle_point == EXHAUST;
+    }
+    else if (third_cyl.position == (360 / ENCODER_RESOLUTION))
+    {
+      third_cyl.cycle_point == ADMISSION;
+    }
+    else if (third_cyl.position == (540 / ENCODER_RESOLUTION))
+    {
+      third_cyl.cycle_point == COMPRESSION;
+    }
+    else
+    {
+      /*DO NOTHING*/
+    }
+    break;
+  
+  default:
+    break;
+  }
+}
+
+//Firing Order: 1-3-2
+void spark (int cylinder, int state)
+{
+  switch (cylinder)
   {
   case FIRST_CYLINDER:
     if (state == ON)
     {
       digitalWrite(RED_LED_1, TRUE);
-      *cylinder = THIRD_CYLINDER;
     }
     else /*state == OFF*/
     {
@@ -257,7 +417,6 @@ void spark (int* cylinder, int state)
     if (state == ON)
     {
       digitalWrite(RED_LED_2, TRUE);
-      *cylinder = FIRST_CYLINDER;
     }
     else /*state == OFF*/
     {
@@ -269,7 +428,6 @@ void spark (int* cylinder, int state)
     if (state == ON)
     {
       digitalWrite(RED_LED_3, TRUE);
-      *cylinder = SECOND_CYLINDER;
     }
     else /*state == OFF*/
     {
@@ -283,15 +441,14 @@ void spark (int* cylinder, int state)
 }
 
 //Firing Order: 1-3-2
-void inject (int* cylinder, int state)
+void inject (int cylinder, int state)
 {
-  switch (*cylinder)
+  switch (cylinder)
   {
   case FIRST_CYLINDER:
     if (state == ON)
     {
       digitalWrite(GREEN_LED_1, TRUE);
-      *cylinder = THIRD_CYLINDER;
     }
     else /*state == OFF*/
     {
@@ -303,7 +460,6 @@ void inject (int* cylinder, int state)
     if (state == ON)
     {
       digitalWrite(GREEN_LED_2, TRUE);
-      *cylinder = FIRST_CYLINDER;
     }
     else /*state == OFF*/
     {
@@ -315,7 +471,6 @@ void inject (int* cylinder, int state)
     if (state == ON)
     {
       digitalWrite(GREEN_LED_3, TRUE);
-      *cylinder = SECOND_CYLINDER;
     }
     else /*state == OFF*/
     {
