@@ -2,10 +2,10 @@
 //TODO*: Implement potentiometer for load detection (throttle valve opening)     | (DONE)
 //TODO*: Implement lookup tables for ignition timing and injection timing        | (DONE)
 //TODO : Implement temperature correction for the timing calculations            | (DONE~)
+//TODO : Implement pushbuttons for push to start and gear change                 | (DONE~)
 //TODO!: Implement motor control with pwm having load as an input                |
-//TODO!: Implement pushbuttons for encoder position zero-ing and gear change     |
-//TODO!: Implement buzzer for rpm limit warning                                  |
-//TODO!: Implement output with rpm and gear                                      |
+//TODO!: Implement buzzer for rpm limit warning and starting sound               |
+//TODO!: Implement output with rpm and gear                                      | (NOT ENOUGH PINS)
 
 //Libraries
 #include "DHT.h"
@@ -16,6 +16,8 @@
 #define INIT_F              0.00F
 #define OFF                 0U
 #define ON                  1U
+#define UNPRESSED           0U
+#define PRESSED             1U
 #define FALSE               0U
 #define TRUE                1U
 #define POT_MIN             12.00F   
@@ -34,13 +36,11 @@
 #define AMBIENT_TEMPERATURE 25U
 
 //Macro Pin Definitions
-#define TEMP_SENSOR      1U
-#define ENCODER_CRK_CLK  2U
-#define ENCODER_CRK_DT   3U
-#define ENCODER_CRK_SW   4U
-#define ENCODER_CAM_DT   5U
-#define ENCODER_CAM_CLK  6U
-#define ENCODER_CAM_SW   7U
+#define TEMP_SENSOR      0U
+#define ENCODER_CRK_CLK  1U
+#define ENCODER_CRK_DT   2U
+#define BUTTON           4U
+
 #define RED_LED_1        8U
 #define RED_LED_2        9U
 #define RED_LED_3        10U
@@ -139,9 +139,8 @@ void setup()
 
   pinMode (ENCODER_CRK_DT  , INPUT);
   pinMode (ENCODER_CRK_CLK , INPUT);
-  pinMode (ENCODER_CRK_SW  , INPUT);  
-  pinMode (ENCODER_CAM_DT  , INPUT);
-  pinMode (ENCODER_CAM_CLK , INPUT);
+  // pinMode (BUTTON          , INPUT);
+
   
   // delay(ONE_SECOND); /*To ensure max frequency reading of temperature sensor is abided*/
 }
@@ -167,157 +166,170 @@ void loop()
 
   // Serial.println(temperature);
 
-  unsigned long int init_time = millis();
-  shaft crankshaft = {FALSE, INIT};
-  do
-  {
-    crankshaft = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+  // static unsigned int push_to_start = UNPRESSED;
+  // static unsigned int current_state = OFF;
 
-    for (int i = 0; i < NUMBER_OF_CYLINDERS; i++)
+  // push_to_start = digitalRead(BUTTON);
+
+  // if (push_to_start == PRESSED)
+  // {
+  //   current_state = (current_state == OFF) ? ON : OFF;
+  // }
+  
+  // if (current_state == ON)
+  // {
+    unsigned long int init_time = millis();
+    shaft crankshaft = {FALSE, INIT};
+    do
     {
-      if (i == FIRST_CYLINDER)
+      crankshaft = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
+
+      for (int i = 0; i < NUMBER_OF_CYLINDERS; i++)
       {
-        if (first_cylinder.cycle_point == ADMISSION || first_cylinder.cycle_point == COMPRESSION)
+        if (i == FIRST_CYLINDER)
         {
-          int cylinder_position = (first_cylinder.position - 360) / ENCODER_RESOLUTION;
-
-          static int spark_start = INIT; 
-          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cylinder_position == ingnition_point)
+          if (first_cylinder.cycle_point == ADMISSION || first_cylinder.cycle_point == COMPRESSION)
           {
-            Serial.println("FIRST IGN ON");
-            spark_start = cylinder_position;
-            spark(FIRST_CYLINDER, ON);
-          }
+            int cylinder_position = (first_cylinder.position - 360) / ENCODER_RESOLUTION;
 
-          static int injection_start = INIT;
-          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cylinder_position  == injection_point)
-          {
-            Serial.println("FIRST INJ ON");
-            injection_start = cylinder_position;
-            inject(FIRST_CYLINDER, ON);
-          }
+            static int spark_start = INIT; 
+            int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+            if (cylinder_position == ingnition_point)
+            {
+              Serial.println("FIRST IGN ON");
+              spark_start = cylinder_position;
+              spark(FIRST_CYLINDER, ON);
+            }
 
-          if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
-          {
-            spark(FIRST_CYLINDER, OFF);
-          }
+            static int injection_start = INIT;
+            int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+            if (cylinder_position  == injection_point)
+            {
+              Serial.println("FIRST INJ ON");
+              injection_start = cylinder_position;
+              inject(FIRST_CYLINDER, ON);
+            }
 
-          if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
-          {
-            inject(FIRST_CYLINDER, OFF);
+            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            {
+              spark(FIRST_CYLINDER, OFF);
+            }
+
+            if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+            {
+              inject(FIRST_CYLINDER, OFF);
+            }
           }
         }
-      }
-      else if (i == SECOND_CYLINDER)
-      {
-        if (second_cylinder.cycle_point == ADMISSION || second_cylinder.cycle_point == COMPRESSION)
+        else if (i == SECOND_CYLINDER)
         {
-          int cylinder_position = (second_cylinder.position - 360) / ENCODER_RESOLUTION;
-
-          static int spark_start = INIT; 
-          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cylinder_position == ingnition_point)
+          if (second_cylinder.cycle_point == ADMISSION || second_cylinder.cycle_point == COMPRESSION)
           {
-            Serial.println("SECOND IGN ON");
-            spark_start = cylinder_position;
-            spark(SECOND_CYLINDER, ON);
-          }
+            int cylinder_position = (second_cylinder.position - 360) / ENCODER_RESOLUTION;
 
-          static int injection_start = INIT;
-          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cylinder_position == injection_point)
-          {
-            Serial.println("SECOND INJ ON");
-            injection_start = cylinder_position;
-            inject(SECOND_CYLINDER, ON);
-          }
+            static int spark_start = INIT; 
+            int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+            if (cylinder_position == ingnition_point)
+            {
+              Serial.println("SECOND IGN ON");
+              spark_start = cylinder_position;
+              spark(SECOND_CYLINDER, ON);
+            }
 
-          if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
-          {
-            spark(SECOND_CYLINDER, OFF);
-          }
+            static int injection_start = INIT;
+            int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+            if (cylinder_position == injection_point)
+            {
+              Serial.println("SECOND INJ ON");
+              injection_start = cylinder_position;
+              inject(SECOND_CYLINDER, ON);
+            }
 
-          if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
-          {
-            inject(SECOND_CYLINDER, OFF);
+            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            {
+              spark(SECOND_CYLINDER, OFF);
+            }
+
+            if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+            {
+              inject(SECOND_CYLINDER, OFF);
+            }
           }
         }
-      }
-      else if (i == THIRD_CYLINDER)
-      {
-        if (third_cylinder.cycle_point == ADMISSION  || third_cylinder.cycle_point == COMPRESSION)
+        else if (i == THIRD_CYLINDER)
         {
-          int cylinder_position = (third_cylinder.position - 360) / ENCODER_RESOLUTION;
-          
-          static int spark_start = INIT; 
-          int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
-          if (cylinder_position == ingnition_point)
+          if (third_cylinder.cycle_point == ADMISSION  || third_cylinder.cycle_point == COMPRESSION)
           {
-            Serial.println("THIRD IGN ON");
-            spark_start = cylinder_position;
-            spark(THIRD_CYLINDER, ON);
-          }
+            int cylinder_position = (third_cylinder.position - 360) / ENCODER_RESOLUTION;
+            
+            static int spark_start = INIT; 
+            int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
+            if (cylinder_position == ingnition_point)
+            {
+              Serial.println("THIRD IGN ON");
+              spark_start = cylinder_position;
+              spark(THIRD_CYLINDER, ON);
+            }
 
-          static int injection_start = INIT;
-          int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
-          if (cylinder_position == injection_point)
-          {
-            Serial.println("THIRD INJ ON");
-            injection_start = cylinder_position;
-            inject(THIRD_CYLINDER, ON);
-          }
+            static int injection_start = INIT;
+            int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
+            if (cylinder_position == injection_point)
+            {
+              Serial.println("THIRD INJ ON");
+              injection_start = cylinder_position;
+              inject(THIRD_CYLINDER, ON);
+            }
 
-          if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
-          {
-            spark(THIRD_CYLINDER, OFF);
-          }
+            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            {
+              spark(THIRD_CYLINDER, OFF);
+            }
 
-          if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
-          {
-            inject(THIRD_CYLINDER, OFF);
+            if ((injection_start != INIT) && ((cylinder_position - injection_start) > (fuel_mass / ENCODER_RESOLUTION)))
+            {
+              inject(THIRD_CYLINDER, OFF);
+            }
           }
         }
+        else
+        {
+          /*DO NOTHING*/
+        }
       }
-      else
-      {
-        /*DO NOTHING*/
-      }
-    }
-  } while (crankshaft.full_turn != TRUE);
-  unsigned long int final_time = millis();
+    } while (crankshaft.full_turn != TRUE);
+    unsigned long int final_time = millis();
 
-                                          /*Conversion Factor from milliseconds to minutes*/
-  static float elapsed_time = (float)(final_time - init_time) * (0.001/60.000);
-  static unsigned int rpm = 1/elapsed_time;
+                                            /*Conversion Factor from milliseconds to minutes*/
+    static float elapsed_time = (float)(final_time - init_time) * (0.001/60.000);
+    static unsigned int rpm = 1/elapsed_time;
 
-  int pot_val = analogRead(POTENTIOMETER);
-                          /*Conversion Factor Calculation*/
-  int load = SCALE_MAX * (float)(pot_val/POT_MAX);
+    int pot_val = analogRead(POTENTIOMETER);
+                            /*Conversion Factor Calculation*/
+    int load = SCALE_MAX * (float)(pot_val/POT_MAX);
 
-  int load_idx = load/10;
-  int rpm_idx = (rpm/10) - 1;
+    int load_idx = load/10;
+    int rpm_idx = (rpm/10) - 1;
 
-  // int temp_correction = temperature - AMBIENT_TEMPERATURE;
-  // //To avoid not multiples of encoder resolution
-  // if (temp_correction > 1)
-  // {
-  //   temp_correction = 1;
-  // } 
-  // else if (temp_correction < -1)
-  // {
-  //   temp_correction = -1;
+    // int temp_correction = temperature - AMBIENT_TEMPERATURE;
+    // //To avoid not multiples of encoder resolution
+    // if (temp_correction > 1)
+    // {
+    //   temp_correction = 1;
+    // } 
+    // else if (temp_correction < -1)
+    // {
+    //   temp_correction = -1;
+    // }
+    // else
+    // {
+    //   /*DO NOTHING*/
+    // }
+
+    //spark_advance      = ignition_map [load_idx][rpm_idx] - (ENCODER_RESOLUTION * temp_correction);
+    spark_advance      = ignition_map [load_idx][rpm_idx]; 
+    start_of_injection = injection_map[load_idx][rpm_idx];
+    fuel_mass          = fuel_map     [load_idx][rpm_idx];
   // }
-  // else
-  // {
-  //   /*DO NOTHING*/
-  // }
-
-  //spark_advance      = ignition_map [load_idx][rpm_idx] - (ENCODER_RESOLUTION * temp_correction);
-  spark_advance      = ignition_map [load_idx][rpm_idx]; 
-  start_of_injection = injection_map[load_idx][rpm_idx];
-  fuel_mass          = fuel_map     [load_idx][rpm_idx];
 }
 
 //Auxiliary Functions Implementations
