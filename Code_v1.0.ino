@@ -39,8 +39,9 @@
 #define TEMP_SENSOR      0U
 #define ENCODER_CRK_CLK  1U
 #define ENCODER_CRK_DT   2U
-#define BUTTON           4U
-
+#define BUZZER           3U
+#define BLUE_LED         6U
+#define BUTTON           7U
 #define RED_LED_1        8U
 #define RED_LED_2        9U
 #define RED_LED_3        10U
@@ -69,6 +70,7 @@ shaft encoderReader(int pinCLK, int pinDT);
 void update (int cylinder);
 void spark (int cylinder, int state);
 void inject (int cylinder, int state);
+void pushToStart(void);
 
 //Global Variables      
 
@@ -122,6 +124,8 @@ static cylinder third_cylinder  = {THIRD_CYLINDER , ADMISSION  , 480, update};
 
 DHT dht (TEMP_SENSOR, DHT11); /*Pin and sensor id for temperature reading*/
 
+static unsigned int current_state = OFF; /*Activation and deactivation control variable*/
+
 //Main Functions
 void setup() 
 {
@@ -130,6 +134,8 @@ void setup()
 
   Serial.begin (9600);
 
+  pinMode (BUZZER      , OUTPUT);
+  pinMode (BLUE_LED    , OUTPUT);
   pinMode (RED_LED_1   , OUTPUT);
   pinMode (RED_LED_2   , OUTPUT);
   pinMode (RED_LED_3   , OUTPUT);
@@ -139,8 +145,14 @@ void setup()
 
   pinMode (ENCODER_CRK_DT  , INPUT);
   pinMode (ENCODER_CRK_CLK , INPUT);
-  // pinMode (BUTTON          , INPUT);
 
+  //Interrupt Pin
+  pinMode (BUTTON , INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), pushToStart, FALLING);
+
+  tone(BUZZER, 1000, 300);
+  delay(700);
+  tone(BUZZER, 1000, 300);
   
   // delay(ONE_SECOND); /*To ensure max frequency reading of temperature sensor is abided*/
 }
@@ -165,19 +177,11 @@ void loop()
   // }
 
   // Serial.println(temperature);
-
-  // static unsigned int push_to_start = UNPRESSED;
-  // static unsigned int current_state = OFF;
-
-  // push_to_start = digitalRead(BUTTON);
-
-  // if (push_to_start == PRESSED)
-  // {
-  //   current_state = (current_state == OFF) ? ON : OFF;
-  // }
   
-  // if (current_state == ON)
-  // {
+  if (current_state == ON)
+  {
+    digitalWrite(BLUE_LED, TRUE);
+    
     unsigned long int init_time = millis();
     shaft crankshaft = {FALSE, INIT};
     do
@@ -210,7 +214,7 @@ void loop()
               inject(FIRST_CYLINDER, ON);
             }
 
-            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            if (spark_start != INIT)
             {
               spark(FIRST_CYLINDER, OFF);
             }
@@ -245,7 +249,7 @@ void loop()
               inject(SECOND_CYLINDER, ON);
             }
 
-            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            if (spark_start != INIT)
             {
               spark(SECOND_CYLINDER, OFF);
             }
@@ -280,7 +284,7 @@ void loop()
               inject(THIRD_CYLINDER, ON);
             }
 
-            if ((spark_start != INIT) && ((cylinder_position - spark_start) > 1))
+            if (spark_start != INIT)
             {
               spark(THIRD_CYLINDER, OFF);
             }
@@ -294,6 +298,11 @@ void loop()
         else
         {
           /*DO NOTHING*/
+        }
+
+        if (current_state == OFF)
+        {
+          break;
         }
       }
     } while (crankshaft.full_turn != TRUE);
@@ -325,14 +334,48 @@ void loop()
     //   /*DO NOTHING*/
     // }
 
-    //spark_advance      = ignition_map [load_idx][rpm_idx] - (ENCODER_RESOLUTION * temp_correction);
+    // spark_advance      = ignition_map [load_idx][rpm_idx] - (ENCODER_RESOLUTION * temp_correction);
     spark_advance      = ignition_map [load_idx][rpm_idx]; 
     start_of_injection = injection_map[load_idx][rpm_idx];
     fuel_mass          = fuel_map     [load_idx][rpm_idx];
-  // }
+  }
+  else /*(current_state == OFF)*/
+  {
+    static unsigned int blink = OFF;
+
+    blink = (blink == OFF) ? ON : OFF;
+
+    delay(500);
+    
+    digitalWrite(BLUE_LED, blink);
+    
+    spark_advance      = INIT;
+    start_of_injection = INIT;
+    fuel_mass          = INIT;
+
+    first_cylinder.position = 0;
+    first_cylinder.cycle_point = EXPANSION;
+
+    second_cylinder.position = 240;
+    second_cylinder.cycle_point = EXHAUST;
+
+    third_cylinder.position = 480;
+    third_cylinder.cycle_point = ADMISSION;
+  }
 }
 
 //Auxiliary Functions Implementations
+
+void pushToStart(void) /*Interrupt Function*/
+{
+  current_state = (current_state == OFF) ? ON : OFF;
+
+  Serial.println(current_state);
+
+  tone(BUZZER, 700, 300);
+  tone(BUZZER, 1000, 300);
+}
+
 shaft encoderReader(int pinCLK, int pinDT)
 {
   static int last_switch_A = INIT;
