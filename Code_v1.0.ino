@@ -1,11 +1,11 @@
 //TODO*: Implement timers for angular speed calculations                         | (DONE)
 //TODO*: Implement potentiometer for load detection (throttle valve opening)     | (DONE)
 //TODO*: Implement lookup tables for ignition timing and injection timing        | (DONE)
-//TODO : Implement temperature correction for the timing calculations            | (DONE~)
-//TODO : Implement pushbuttons for push to start and gear change                 | (DONE~)
-//TODO!: Implement motor control with pwm having load as an input                |
-//TODO!: Implement buzzer for rpm limit warning and starting sound               |
-//TODO!: Implement output with rpm and gear                                      | (NOT ENOUGH PINS)
+//TODO*: Implement temperature correction for the timing calculations            | (DONE)
+//TODO*: Implement pushbuttons for push to start                                 | (DONE)
+//TODO*: Implement motor control with pwm having potentiometer as an input       | (DONE)
+//TODO*: Implement buzzer for starting sound                                     | (DONE)
+//TODO!: Implement output with rpm                                               | (NOT ENOUGH PINS)
 
 //Libraries
 #include "DHT.h"
@@ -166,6 +166,7 @@ void loop()
   static int start_of_injection = INIT;
   static int fuel_mass          = INIT;
 
+  static unsigned int pot_val = INIT;
   static unsigned int torque_request = INIT;
 
   // static float temperature = INIT_F; 
@@ -189,8 +190,17 @@ void loop()
     
     unsigned long int init_time = millis();
     shaft crankshaft = {FALSE, INIT};
-    do
+    while (crankshaft.full_turn != TRUE)
     {
+      if (current_state == OFF)
+      {
+        break;
+      }
+
+      pot_val = analogRead(POTENTIOMETER);
+      torque_request = SCALE_MAX_8Bit * (float)(pot_val/POT_MAX);
+      analogWrite(MOTOR_CONTROLLER, torque_request);
+
       crankshaft = encoderReader(ENCODER_CRK_CLK, ENCODER_CRK_DT);
 
       for (int i = 0; i < NUMBER_OF_CYLINDERS; i++)
@@ -205,7 +215,7 @@ void loop()
             int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
             if (cylinder_position == ingnition_point)
             {
-              Serial.println("FIRST IGN ON");
+              // Serial.println("FIRST IGN ON");
               spark_start = cylinder_position;
               spark(FIRST_CYLINDER, ON);
             }
@@ -214,7 +224,7 @@ void loop()
             int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
             if (cylinder_position  == injection_point)
             {
-              Serial.println("FIRST INJ ON");
+              // Serial.println("FIRST INJ ON");
               injection_start = cylinder_position;
               inject(FIRST_CYLINDER, ON);
             }
@@ -240,7 +250,7 @@ void loop()
             int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
             if (cylinder_position == ingnition_point)
             {
-              Serial.println("SECOND IGN ON");
+              // Serial.println("SECOND IGN ON");
               spark_start = cylinder_position;
               spark(SECOND_CYLINDER, ON);
             }
@@ -249,7 +259,7 @@ void loop()
             int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
             if (cylinder_position == injection_point)
             {
-              Serial.println("SECOND INJ ON");
+              // Serial.println("SECOND INJ ON");
               injection_start = cylinder_position;
               inject(SECOND_CYLINDER, ON);
             }
@@ -275,7 +285,7 @@ void loop()
             int ingnition_point = (360 - spark_advance) / ENCODER_RESOLUTION;
             if (cylinder_position == ingnition_point)
             {
-              Serial.println("THIRD IGN ON");
+              // Serial.println("THIRD IGN ON");
               spark_start = cylinder_position;
               spark(THIRD_CYLINDER, ON);
             }
@@ -284,7 +294,7 @@ void loop()
             int injection_point = (360 - start_of_injection) / ENCODER_RESOLUTION;
             if (cylinder_position == injection_point)
             {
-              Serial.println("THIRD INJ ON");
+              // Serial.println("THIRD INJ ON");
               injection_start = cylinder_position;
               inject(THIRD_CYLINDER, ON);
             }
@@ -304,25 +314,19 @@ void loop()
         {
           /*DO NOTHING*/
         }
-
-        if (current_state == OFF)
-        {
-          break;
-        }
       }
-    } while (crankshaft.full_turn != TRUE);
+    }
     unsigned long int final_time = millis();
 
                                             /*Conversion Factor from milliseconds to minutes*/
-    static float elapsed_time = (float)(final_time - init_time) * (0.001/60.000);
-    static unsigned int rpm = 1/elapsed_time;
+    
+    static float elapsed_time = (float)(final_time - init_time) * (float)(0.001/60.000);;
+    unsigned int rpm = 1/elapsed_time;
 
-    int pot_val = analogRead(POTENTIOMETER);
+    Serial.println (rpm);
+
                             /*Conversion Factor Calculation*/
     int load = SCALE_MAX * (float)(pot_val/POT_MAX);
-
-    torque_request = SCALE_MAX_8Bit * (float)(pot_val/POT_MAX);
-    analogWrite(MOTOR_CONTROLLER, torque_request);
 
     int load_idx = load/10;
     int rpm_idx = (rpm/10) - 1;
@@ -369,6 +373,14 @@ void loop()
 
     third_cylinder.position = 480;
     third_cylinder.cycle_point = ADMISSION;
+
+    inject(FIRST_CYLINDER , OFF);
+    inject(SECOND_CYLINDER, OFF);
+    inject(THIRD_CYLINDER , OFF);
+
+    spark(FIRST_CYLINDER , OFF);
+    spark(SECOND_CYLINDER, OFF);
+    spark(THIRD_CYLINDER , OFF);
   }
 }
 
@@ -390,7 +402,12 @@ shaft encoderReader(int pinCLK, int pinDT)
   static int last_switch_B = INIT;
   static shaft encoder = {FALSE, INIT};
   static int flip = INIT;
- 
+
+  if ((encoder.full_turn == TRUE) && (encoder.position == INIT))
+  {
+    encoder.full_turn = FALSE;
+  }
+
   int switch_A = digitalRead(pinCLK);
   int switch_B = digitalRead(pinDT);
 
@@ -410,7 +427,7 @@ shaft encoderReader(int pinCLK, int pinDT)
 
   if (encoder.position == FULL_TURN)
   {
-    encoder.full_turn = TRUE;
+    encoder.full_turn = TRUE; /*TENS DE VOLTAR A SETAR A FALSO*/
     encoder.position = INIT;
   }
 
