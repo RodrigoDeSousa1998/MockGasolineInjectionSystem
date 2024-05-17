@@ -23,6 +23,7 @@
 #define POT_MIN             12.00F   
 #define POT_MAX             1023.00F
 #define SCALE_MAX           100.00F
+#define SCALE_MAX_8Bit      255U
 #define ENCODER_RESOLUTION  12U
 #define ADMISSION           0U
 #define COMPRESSION         1U
@@ -40,6 +41,7 @@
 #define ENCODER_CRK_CLK  1U
 #define ENCODER_CRK_DT   2U
 #define BUZZER           3U
+#define MOTOR_CONTROLLER 5U
 #define BLUE_LED         6U
 #define BUTTON           7U
 #define RED_LED_1        8U
@@ -134,14 +136,15 @@ void setup()
 
   Serial.begin (9600);
 
-  pinMode (BUZZER      , OUTPUT);
-  pinMode (BLUE_LED    , OUTPUT);
-  pinMode (RED_LED_1   , OUTPUT);
-  pinMode (RED_LED_2   , OUTPUT);
-  pinMode (RED_LED_3   , OUTPUT);
-  pinMode (GREEN_LED_1 , OUTPUT);
-  pinMode (GREEN_LED_2 , OUTPUT);
-  pinMode (GREEN_LED_3 , OUTPUT);
+  pinMode (BUZZER           , OUTPUT);
+  pinMode (MOTOR_CONTROLLER , OUTPUT);
+  pinMode (BLUE_LED         , OUTPUT);
+  pinMode (RED_LED_1        , OUTPUT);
+  pinMode (RED_LED_2        , OUTPUT);
+  pinMode (RED_LED_3        , OUTPUT);
+  pinMode (GREEN_LED_1      , OUTPUT);
+  pinMode (GREEN_LED_2      , OUTPUT);
+  pinMode (GREEN_LED_3      , OUTPUT);
 
   pinMode (ENCODER_CRK_DT  , INPUT);
   pinMode (ENCODER_CRK_CLK , INPUT);
@@ -162,6 +165,8 @@ void loop()
   static int spark_advance      = INIT;
   static int start_of_injection = INIT;
   static int fuel_mass          = INIT;
+
+  static unsigned int torque_request = INIT;
 
   // static float temperature = INIT_F; 
   // static unsigned long int temp_read_init  = INIT;
@@ -315,6 +320,9 @@ void loop()
     int pot_val = analogRead(POTENTIOMETER);
                             /*Conversion Factor Calculation*/
     int load = SCALE_MAX * (float)(pot_val/POT_MAX);
+
+    torque_request = SCALE_MAX_8Bit * (float)(pot_val/POT_MAX);
+    analogWrite(MOTOR_CONTROLLER, torque_request);
 
     int load_idx = load/10;
     int rpm_idx = (rpm/10) - 1;
